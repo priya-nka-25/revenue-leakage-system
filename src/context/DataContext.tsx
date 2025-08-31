@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { leakageAPI, ticketAPI, statsAPI, datasetAPI, type Leakage, type Ticket, type Stats } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -7,7 +7,7 @@ interface DataContextType {
   tickets: Ticket[];
   stats: Stats | null;
   isLoading: boolean;
-  uploadDataset: (filename: string, sector: string) => Promise<boolean>;
+  uploadDataset: (filename: string, sector: string) => Promise<{ success: boolean; dataset_id?: string; message?: string }>;
   processDataset: (datasetId: string) => Promise<{ success: boolean; leakages_detected?: number }>;
   generateTicket: (leakageId: string) => Promise<{ success: boolean; ticket_id?: string; assigned_to?: string }>;
   resolveTicket: (ticketId: string, method: 'ai' | 'manual', solutions?: string[]) => Promise<boolean>;
@@ -24,13 +24,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      refreshData();
-    }
-  }, []);
-
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
+    if (!user) return;
+    
     try {
       const [leakagesData, statsData] = await Promise.all([
         leakageAPI.getAll(),
@@ -50,24 +46,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Failed to refresh data:', error);
     }
-  };
+  }, [user]);
 
-  const uploadDataset = async (filename: string, sector: string): Promise<boolean> => {
-    if (!user) return false;
+  useEffect(() => {
+    if (user) {
+      refreshData();
+    }
+  }, [user, refreshData]);
+
+  const uploadDataset = useCallback(async (filename: string, sector: string): Promise<{ success: boolean; dataset_id?: string; message?: string }> => {
+    if (!user) return { success: false, message: 'User not authenticated' };
     
     setIsLoading(true);
     try {
       const result = await datasetAPI.upload(filename, sector, user.id);
-      return result.success;
+      return result;
     } catch (error) {
       console.error('Upload failed:', error);
-      return false;
+      return { success: false, message: 'Upload failed' };
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const processDataset = async (datasetId: string): Promise<{ success: boolean; leakages_detected?: number }> => {
+  const processDataset = useCallback(async (datasetId: string): Promise<{ success: boolean; leakages_detected?: number }> => {
     setIsLoading(true);
     try {
       const result = await datasetAPI.process(datasetId);
@@ -81,9 +83,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [refreshData]);
 
-  const generateTicket = async (leakageId: string): Promise<{ success: boolean; ticket_id?: string; assigned_to?: string }> => {
+  const generateTicket = useCallback(async (leakageId: string): Promise<{ success: boolean; ticket_id?: string; assigned_to?: string }> => {
     try {
       const result = await ticketAPI.generate(leakageId);
       if (result.success) {
@@ -94,9 +96,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.error('Ticket generation failed:', error);
       return { success: false };
     }
-  };
+  }, [refreshData]);
 
-  const resolveTicket = async (ticketId: string, method: 'ai' | 'manual', solutions?: string[]): Promise<boolean> => {
+  const resolveTicket = useCallback(async (ticketId: string, method: 'ai' | 'manual', solutions?: string[]): Promise<boolean> => {
     try {
       const result = await ticketAPI.resolve(ticketId, method, solutions);
       if (result.success) {
@@ -107,11 +109,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.error('Ticket resolution failed:', error);
       return false;
     }
-  };
+  }, [refreshData]);
 
-  const getTicketsByRole = (role: 'finance' | 'it') => {
+  const getTicketsByRole = useCallback((role: 'finance' | 'it') => {
     return tickets.filter(ticket => ticket.assigned_to === role);
-  };
+  }, [tickets]);
 
   return (
     <DataContext.Provider value={{

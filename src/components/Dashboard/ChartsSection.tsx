@@ -1,9 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BarChart3, PieChart, TrendingUp, DollarSign, AlertTriangle } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 
-export function ChartsSection() {
+export const ChartsSection = React.memo(() => {
   const { stats, leakages } = useData();
+
+  const { severityData, sectorData, totalRevenueLoss, avgLeakageAmount } = useMemo(() => {
+    if (!stats) {
+      return { severityData: {}, sectorData: {}, totalRevenueLoss: 0, avgLeakageAmount: 0 };
+    }
+
+    const severityData = stats.severity_distribution || {};
+    const sectorData = stats.sector_distribution || {};
+    const totalRevenueLoss = leakages.reduce((sum, l) => sum + l.amount, 0);
+    const avgLeakageAmount = leakages.length > 0 ? totalRevenueLoss / leakages.length : 0;
+
+    return { severityData, sectorData, totalRevenueLoss, avgLeakageAmount };
+  }, [stats, leakages]);
 
   if (!stats) {
     return (
@@ -19,13 +32,6 @@ export function ChartsSection() {
       </div>
     );
   }
-
-  const severityData = stats.severity_distribution || {};
-  const sectorData = stats.sector_distribution || {};
-
-  // Revenue metrics
-  const totalRevenueLoss = leakages.reduce((sum, l) => sum + l.amount, 0);
-  const avgLeakageAmount = leakages.length > 0 ? totalRevenueLoss / leakages.length : 0;
 
   // Severity chart
   const SeverityChart = () => {
@@ -98,15 +104,14 @@ export function ChartsSection() {
               <div className="flex items-center space-x-3">
                 <div className={`w-4 h-4 rounded-full ${colors[sector]}`} />
                 <span className={`capitalize font-medium ${textColors[sector]}`}>
-                  {sector === 'telecom' ? '📱 Telecom' :
-                   sector === 'healthcare' ? '🏥 Healthcare' : '🏦 Banking'}
+                  {sector}
                 </span>
               </div>
-              <div className="flex items-center space-x-3">
-                <span className="text-white font-bold">{count}</span>
-                <span className="text-slate-400 text-sm">
-                  ({total > 0 ? Math.round((count / total) * 100) : 0}%)
-                </span>
+              <div className="text-right">
+                <div className="text-white font-bold">{count}</div>
+                <div className="text-xs text-slate-400">
+                  {total > 0 ? `${Math.round((count / total) * 100)}%` : '0%'}
+                </div>
               </div>
             </div>
           ))}
@@ -115,94 +120,34 @@ export function ChartsSection() {
     );
   };
 
-  // Ticket trends
-  const TicketTrends = () => {
-    const resolutionRate = stats.total_tickets > 0 ?
-      Math.round((stats.resolved_tickets / stats.total_tickets) * 100) : 0;
-    const aiEfficiency = (stats.ai_resolutions + stats.manual_resolutions) > 0 ?
-      Math.round((stats.ai_resolutions / (stats.ai_resolutions + stats.manual_resolutions)) * 100) : 0;
-
-    return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-          <TrendingUp className="w-5 h-5" />
-          <span>AI Resolution Analytics</span>
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-3 bg-slate-700/30 rounded-lg">
-            <div className="text-2xl font-bold text-emerald-500">{stats.resolved_tickets}</div>
-            <div className="text-sm text-slate-400">Resolved</div>
-          </div>
-          <div className="text-center p-3 bg-slate-700/30 rounded-lg">
-            <div className="text-2xl font-bold text-amber-500">{stats.pending_tickets}</div>
-            <div className="text-sm text-slate-400">Pending</div>
-          </div>
-        </div>
-        <div className="bg-slate-700/30 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-slate-300 text-sm">Resolution Rate</span>
-            <span className="text-emerald-400 font-bold">{resolutionRate}%</span>
-          </div>
-          <div className="w-full bg-slate-600 rounded-full h-2">
-            <div
-              className="bg-gradient-to-r from-emerald-500 to-blue-500 h-2 rounded-full transition-all duration-1000"
-              style={{ width: `${resolutionRate}%` }}
-            />
-          </div>
-        </div>
-        <div className="bg-slate-700/30 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-slate-300 text-sm">AI Efficiency</span>
-            <span className="text-purple-400 font-bold">{aiEfficiency}%</span>
-          </div>
-          <div className="w-full bg-slate-600 rounded-full h-2">
-            <div
-              className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-1000"
-              style={{ width: `${aiEfficiency}%` }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Revenue impact chart
-  const RevenueImpactChart = () => (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-        <DollarSign className="w-5 h-5 text-emerald-500" />
-        <span>Revenue Impact Analysis</span>
-      </h3>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-red-400">${totalRevenueLoss.toLocaleString()}</div>
-          <div className="text-sm text-slate-400">Total Loss Detected</div>
-        </div>
-        <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-amber-400">${Math.round(avgLeakageAmount).toLocaleString()}</div>
-          <div className="text-sm text-slate-400">Avg per Leakage</div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="grid gap-6">
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700 p-6">
-          <SeverityChart />
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700 p-6">
-          <SectorChart />
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700 p-6">
-          <RevenueImpactChart />
+    <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-white flex items-center space-x-2">
+          <BarChart3 className="w-6 h-6 text-blue-500" />
+          <span>Analytics Dashboard</span>
+        </h2>
+        <div className="flex items-center space-x-4 text-sm">
+          <div className="flex items-center space-x-2">
+            <DollarSign className="w-4 h-4 text-red-400" />
+            <span className="text-slate-400">Total Loss:</span>
+            <span className="text-white font-bold">${Math.round(totalRevenueLoss / 1000)}K</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span className="text-slate-400">Avg:</span>
+            <span className="text-white font-bold">${Math.round(avgLeakageAmount)}</span>
+          </div>
         </div>
       </div>
-      <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700 p-6">
-        <TicketTrends />
+
+      <div className="grid lg:grid-cols-2 gap-8">
+        <SeverityChart />
+        <SectorChart />
       </div>
     </div>
   );
-}
+});
+
+ChartsSection.displayName = 'ChartsSection';
 

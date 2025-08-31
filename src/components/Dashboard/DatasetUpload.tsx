@@ -9,6 +9,7 @@ export function DatasetUpload() {
   const [processComplete, setProcessComplete] = useState(false);
   const [detectedLeakages, setDetectedLeakages] = useState<number>(0);
   const [currentDatasetId, setCurrentDatasetId] = useState<string>('');
+  const [uploadStep, setUploadStep] = useState<'idle' | 'uploading' | 'processing'>('idle');
   const { uploadDataset, processDataset, refreshData } = useData();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -17,6 +18,7 @@ export function DatasetUpload() {
       setUploadedFile(file);
       setProcessComplete(false);
       setCurrentDatasetId('');
+      setUploadStep('idle');
     }
   };
 
@@ -24,20 +26,25 @@ export function DatasetUpload() {
     if (!selectedSector || !uploadedFile) return;
 
     setIsProcessing(true);
+    setUploadStep('uploading');
     
     try {
-      // Step 1: Upload dataset
-      const uploadSuccess = await uploadDataset(uploadedFile.name, selectedSector);
-      if (!uploadSuccess) {
-        throw new Error('Dataset upload failed');
+      // Step 1: Upload dataset and get real dataset ID
+      const uploadResult = await uploadDataset(uploadedFile.name, selectedSector);
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.message || 'Dataset upload failed');
       }
 
-      // Generate a temporary dataset ID for processing
-      const tempDatasetId = `dataset_${Date.now()}`;
-      setCurrentDatasetId(tempDatasetId);
+      const realDatasetId = uploadResult.dataset_id;
+      if (!realDatasetId) {
+        throw new Error('No dataset ID received from upload');
+      }
+
+      setCurrentDatasetId(realDatasetId);
+      setUploadStep('processing');
       
-      // Step 2: Process dataset (this will trigger AI pipeline)
-      const processResult = await processDataset(tempDatasetId);
+      // Step 2: Process dataset with the real dataset ID
+      const processResult = await processDataset(realDatasetId);
       if (!processResult.success) {
         throw new Error('Dataset processing failed');
       }
@@ -49,14 +56,16 @@ export function DatasetUpload() {
       await refreshData();
     } catch (error) {
       console.error('Processing error:', error);
-      alert('Processing failed. Please try again.');
+      alert(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
+      setUploadStep('idle');
     }
   };
 
   const [currentStep, setCurrentStep] = useState(0);
   const processingSteps = [
+    { name: 'Uploading Dataset', icon: '📤', duration: 2000 },
     { name: 'Chunking Dataset', icon: '📊', duration: 2000 },
     { name: 'Generating Embeddings', icon: '🧠', duration: 1500 },
     { name: 'Vector DB Storage', icon: '💾', duration: 1000 },
@@ -144,7 +153,7 @@ export function DatasetUpload() {
           {isProcessing ? (
             <div className="flex items-center justify-center space-x-2">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Processing with AI...</span>
+              <span>{uploadStep === 'uploading' ? 'Uploading...' : 'Processing with AI...'}</span>
             </div>
           ) : (
             'Start AI Analysis'
@@ -192,6 +201,11 @@ export function DatasetUpload() {
                 <p className="text-slate-300 text-sm">
                   🎯 Detected {detectedLeakages} potential revenue leakages with AI-powered root cause analysis
                 </p>
+                {currentDatasetId && (
+                  <p className="text-slate-400 text-xs mt-1">
+                    Dataset ID: {currentDatasetId}
+                  </p>
+                )}
               </div>
             </div>
           </div>

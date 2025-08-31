@@ -1,18 +1,25 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Shield, LogOut, Bell, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export function Header() {
+export const Header = React.memo(() => {
   const { user, logout } = useAuth();
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'bg-purple-500';
-      case 'finance': return 'bg-emerald-500';
-      case 'it': return 'bg-blue-500';
-      default: return 'bg-slate-500';
-    }
-  };
+  const { roleColor, userInitials } = useMemo(() => {
+    const getRoleColor = (role: string) => {
+      switch (role) {
+        case 'admin': return 'bg-purple-500';
+        case 'finance': return 'bg-emerald-500';
+        case 'it': return 'bg-blue-500';
+        default: return 'bg-slate-500';
+      }
+    };
+
+    return {
+      roleColor: getRoleColor(user?.role || ''),
+      userInitials: user?.name.split(' ').map(n => n[0]).join('') || ''
+    };
+  }, [user?.role, user?.name]);
 
   return (
     <header className="bg-slate-800/50 backdrop-blur-xl border-b border-slate-700 sticky top-0 z-50">
@@ -38,9 +45,9 @@ export function Header() {
             </button>
 
             <div className="flex items-center space-x-3 px-3 py-2 bg-slate-700 rounded-lg">
-              <div className={`w-8 h-8 ${getRoleColor(user?.role || '')} rounded-full flex items-center justify-center`}>
+              <div className={`w-8 h-8 ${roleColor} rounded-full flex items-center justify-center`}>
                 <span className="text-white font-bold text-sm">
-                  {user?.name.split(' ').map(n => n[0]).join('')}
+                  {userInitials}
                 </span>
               </div>
               <div className="text-sm">
@@ -61,4 +68,6 @@ export function Header() {
       </div>
     </header>
   );
-}
+});
+
+Header.displayName = 'Header';

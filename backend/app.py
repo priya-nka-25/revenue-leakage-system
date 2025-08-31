@@ -451,7 +451,6 @@ def get_tickets():
                     '$lookup': {
                         'from': 'leakages',
                         'localField': 'leakage_id',
-                        'localField': 'leakage_id',
                         'foreignField': '_id',
                         'as': 'leakage'
                     }
