@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, User, Lock, Loader2 } from 'lucide-react';
+import { Shield, User, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export function LoginPage() {
@@ -7,6 +7,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -15,9 +17,12 @@ export function LoginPage() {
     setError('');
 
     try {
-      const success = await login(username, password);
-      if (!success) {
+      const response = await login(username, password);
+      console.log(response);
+      if (!response) {
         setError('Invalid credentials. Please try again.');
+      } else {
+        setSuccess("Login successful");
       }
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -99,19 +104,36 @@ export function LoginPage() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-12 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                     placeholder="Enter your password"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
               {error && (
                 <div className="bg-red-500/10 border border-red-500 rounded-xl p-3 text-red-400 text-sm">
                   {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="bg-green-500/10 border border-green-500 rounded-xl p-3 text-green-400 text-sm">
+                  {success}
                 </div>
               )}
 
